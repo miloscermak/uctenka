@@ -112,8 +112,8 @@ def scan_receipt(image_path: Path) -> dict:
     "cena_bez_dph": 0.00,
     "prodejce": {
         "nazev": "název prodejce/obchodu",
-        "dic": "DIČ prodejce",
-        "ico": "IČO prodejce",
+        "dic": "daňové identifikační číslo (DIČ, VAT ID, BTW, TVA, USt-IdNr, apod.)",
+        "ico": "identifikační číslo firmy (IČO, KVK, Company Number, apod.)",
         "adresa": "adresa prodejce"
     }
 }
@@ -123,6 +123,7 @@ Pravidla:
 - Datum ve formátu YYYY-MM-DD
 - Pokud informace není dostupná, použij null
 - U DPH dopočítej hodnoty pokud je známá sazba
+- Pro "dic" hledej jakýkoliv daňový identifikátor (VAT, BTW, TVA, DIČ, USt-IdNr) - např. BE0463544291, CZ12345678
 - Vrať POUZE validní JSON bez dalšího textu"""
 
     message = client.messages.create(
