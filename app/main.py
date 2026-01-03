@@ -1,12 +1,15 @@
 """FastAPI application for Receipt Scanner."""
 
+import os
 import shutil
 import uuid
 from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Query
-from fastapi.responses import Response
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response, FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from . import crud, models, schemas, export
@@ -22,8 +25,19 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# CORS for frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
+
+STATIC_DIR = Path(__file__).parent.parent / "static"
 
 
 # --- User endpoints ---
@@ -243,3 +257,16 @@ def export_receipts(
 def health_check():
     """Health check endpoint."""
     return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
+
+
+# --- Static files and frontend ---
+
+@app.get("/", include_in_schema=False)
+def serve_frontend():
+    """Serve the main frontend page."""
+    return FileResponse(STATIC_DIR / "index.html")
+
+
+# Mount static files (must be after all routes)
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

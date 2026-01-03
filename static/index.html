@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Receipt Scanner</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 { color: #333; margin-bottom: 20px; }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .upload-zone {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: #4F46E5;
+            background: #F5F3FF;
+        }
+        .upload-zone input { display: none; }
+        .upload-zone p { color: #666; margin-bottom: 10px; }
+
+        .category-select {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            justify-content: center;
+        }
+        .category-btn {
+            padding: 8px 20px;
+            border: 2px solid #ddd;
+            border-radius: 20px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .category-btn.active {
+            border-color: #4F46E5;
+            background: #4F46E5;
+            color: white;
+        }
+
+        .btn {
+            background: #4F46E5;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.2s;
+        }
+        .btn:hover { background: #4338CA; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-secondary {
+            background: #6B7280;
+        }
+        .btn-secondary:hover { background: #4B5563; }
+
+        .filters {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .filters select, .filters input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .receipts-list { margin-top: 15px; }
+        .receipt-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .receipt-item:hover { border-color: #4F46E5; background: #FAFAFA; }
+        .receipt-info h3 { font-size: 16px; color: #333; }
+        .receipt-info p { font-size: 14px; color: #666; margin-top: 4px; }
+        .receipt-amount {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+        .badge-work { background: #DBEAFE; color: #1E40AF; }
+        .badge-personal { background: #F3E8FF; color: #7C3AED; }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .items-table th, .items-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .items-table th { font-weight: 600; color: #666; font-size: 13px; }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .loading.active { display: block; }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4F46E5;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .preview-img {
+            max-width: 200px;
+            max-height: 150px;
+            margin-top: 15px;
+            border-radius: 8px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .detail-label { color: #666; }
+        .detail-value { font-weight: 500; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Receipt Scanner</h1>
+
+        <!-- Upload Card -->
+        <div class="card">
+            <h2 style="margin-bottom: 15px;">Nahrát účtenku</h2>
+            <div class="upload-zone" id="uploadZone">
+                <p>Přetáhněte obrázek účtenky sem</p>
+                <p style="font-size: 14px; color: #999;">nebo klikněte pro výběr souboru</p>
+                <input type="file" id="fileInput" accept="image/*">
+                <img id="preview" class="preview-img" style="display: none;">
+            </div>
+            <div class="category-select">
+                <button class="category-btn active" data-category="personal">Osobní</button>
+                <button class="category-btn" data-category="work">Pracovní</button>
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn" id="uploadBtn" disabled>Naskenovat účtenku</button>
+            </div>
+            <div class="loading" id="uploadLoading">
+                <div class="spinner"></div>
+                <p>Analyzuji účtenku pomocí AI...</p>
+            </div>
+        </div>
+
+        <!-- Receipts List Card -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2>Moje účtenky</h2>
+                <button class="btn btn-secondary" id="exportBtn">Export CSV</button>
+            </div>
+            <div class="filters">
+                <select id="filterCategory">
+                    <option value="">Všechny kategorie</option>
+                    <option value="personal">Osobní</option>
+                    <option value="work">Pracovní</option>
+                </select>
+                <input type="date" id="filterDateFrom" placeholder="Od">
+                <input type="date" id="filterDateTo" placeholder="Do">
+                <button class="btn" onclick="loadReceipts()">Filtrovat</button>
+            </div>
+            <div class="receipts-list" id="receiptsList">
+                <div class="empty-state">Zatím žádné účtenky</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Receipt Detail Modal -->
+    <div class="modal" id="detailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Detail účtenky</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '';
+        let currentUser = null;
+        let selectedFile = null;
+        let selectedCategory = 'personal';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initUser();
+            loadReceipts();
+            setupEventListeners();
+        });
+
+        async function initUser() {
+            // Try to get or create user
+            try {
+                const res = await fetch(`${API_URL}/users`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: 'demo@receipts.app', name: 'Demo User' })
+                });
+                if (res.ok) {
+                    currentUser = await res.json();
+                } else if (res.status === 400) {
+                    // User exists, fetch by creating with same email will fail
+                    // For simplicity, we'll use user ID 1
+                    currentUser = { id: 1 };
+                }
+            } catch (e) {
+                currentUser = { id: 1 };
+            }
+        }
+
+        function setupEventListeners() {
+            const uploadZone = document.getElementById('uploadZone');
+            const fileInput = document.getElementById('fileInput');
+
+            uploadZone.addEventListener('click', () => fileInput.click());
+            uploadZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadZone.classList.add('dragover');
+            });
+            uploadZone.addEventListener('dragleave', () => {
+                uploadZone.classList.remove('dragover');
+            });
+            uploadZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadZone.classList.remove('dragover');
+                handleFile(e.dataTransfer.files[0]);
+            });
+            fileInput.addEventListener('change', (e) => {
+                handleFile(e.target.files[0]);
+            });
+
+            document.querySelectorAll('.category-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    selectedCategory = btn.dataset.category;
+                });
+            });
+
+            document.getElementById('uploadBtn').addEventListener('click', uploadReceipt);
+            document.getElementById('exportBtn').addEventListener('click', exportReceipts);
+        }
+
+        function handleFile(file) {
+            if (!file || !file.type.startsWith('image/')) return;
+            selectedFile = file;
+
+            const preview = document.getElementById('preview');
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+
+            document.getElementById('uploadBtn').disabled = false;
+        }
+
+        async function uploadReceipt() {
+            if (!selectedFile) return;
+
+            const btn = document.getElementById('uploadBtn');
+            const loading = document.getElementById('uploadLoading');
+
+            btn.disabled = true;
+            loading.classList.add('active');
+
+            try {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+
+                const res = await fetch(
+                    `${API_URL}/users/${currentUser.id}/receipts/scan?category=${selectedCategory}`,
+                    { method: 'POST', body: formData }
+                );
+
+                if (!res.ok) throw new Error('Upload failed');
+
+                const receipt = await res.json();
+                showReceiptDetail(receipt);
+                loadReceipts();
+
+                // Reset upload form
+                selectedFile = null;
+                document.getElementById('preview').style.display = 'none';
+                document.getElementById('fileInput').value = '';
+
+            } catch (e) {
+                alert('Chyba při nahrávání: ' + e.message);
+            } finally {
+                btn.disabled = true;
+                loading.classList.remove('active');
+            }
+        }
+
+        async function loadReceipts() {
+            const category = document.getElementById('filterCategory').value;
+            const dateFrom = document.getElementById('filterDateFrom').value;
+            const dateTo = document.getElementById('filterDateTo').value;
+
+            let url = `${API_URL}/users/${currentUser?.id || 1}/receipts?`;
+            if (category) url += `category=${category}&`;
+            if (dateFrom) url += `date_from=${dateFrom}T00:00:00&`;
+            if (dateTo) url += `date_to=${dateTo}T23:59:59&`;
+
+            try {
+                const res = await fetch(url);
+                const receipts = await res.json();
+                renderReceipts(receipts);
+            } catch (e) {
+                console.error('Failed to load receipts:', e);
+            }
+        }
+
+        function renderReceipts(receipts) {
+            const list = document.getElementById('receiptsList');
+
+            if (!receipts.length) {
+                list.innerHTML = '<div class="empty-state">Zatím žádné účtenky</div>';
+                return;
+            }
+
+            list.innerHTML = receipts.map(r => `
+                <div class="receipt-item" onclick="showReceiptDetail(${r.id})">
+                    <div class="receipt-info">
+                        <h3>
+                            ${r.seller_name || 'Neznámý prodejce'}
+                            <span class="badge badge-${r.category}">${r.category === 'work' ? 'Pracovní' : 'Osobní'}</span>
+                        </h3>
+                        <p>${r.date ? new Date(r.date).toLocaleDateString('cs-CZ') : 'Neznámé datum'}</p>
+                    </div>
+                    <div class="receipt-amount">
+                        ${r.total_amount?.toFixed(2) || '?'} ${r.currency}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function showReceiptDetail(receiptOrId) {
+            let receipt = receiptOrId;
+            if (typeof receiptOrId === 'number') {
+                const res = await fetch(`${API_URL}/receipts/${receiptOrId}`);
+                receipt = await res.json();
+            }
+
+            const modal = document.getElementById('detailModal');
+            const body = document.getElementById('modalBody');
+
+            body.innerHTML = `
+                <div class="detail-row">
+                    <span class="detail-label">Prodejce</span>
+                    <span class="detail-value">${receipt.seller_name || '-'}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">DIČ</span>
+                    <span class="detail-value">${receipt.seller_tax_id || '-'}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Adresa</span>
+                    <span class="detail-value">${receipt.seller_address || '-'}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Datum</span>
+                    <span class="detail-value">${receipt.date ? new Date(receipt.date).toLocaleDateString('cs-CZ') : '-'}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Kategorie</span>
+                    <span class="detail-value">
+                        <span class="badge badge-${receipt.category}">${receipt.category === 'work' ? 'Pracovní' : 'Osobní'}</span>
+                    </span>
+                </div>
+                ${receipt.note ? `
+                <div class="detail-row">
+                    <span class="detail-label">Poznámka</span>
+                    <span class="detail-value">${receipt.note}</span>
+                </div>
+                ` : ''}
+
+                <h3 style="margin: 20px 0 10px;">Položky</h3>
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th>Položka</th>
+                            <th>Množství</th>
+                            <th>Cena</th>
+                            <th>DPH</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${receipt.items?.map(item => `
+                            <tr>
+                                <td>${item.name}</td>
+                                <td>${item.quantity}</td>
+                                <td>${item.total_price?.toFixed(2) || '-'} ${receipt.currency}</td>
+                                <td>${item.vat_rate ? item.vat_rate + '%' : '-'}</td>
+                            </tr>
+                        `).join('') || '<tr><td colspan="4">Žádné položky</td></tr>'}
+                    </tbody>
+                </table>
+
+                <div style="margin-top: 20px; padding-top: 15px; border-top: 2px solid #eee;">
+                    <div class="detail-row">
+                        <span class="detail-label">Cena bez DPH</span>
+                        <span class="detail-value">${receipt.total_without_vat?.toFixed(2) || '-'} ${receipt.currency}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">DPH celkem</span>
+                        <span class="detail-value">${receipt.total_vat?.toFixed(2) || '-'} ${receipt.currency}</span>
+                    </div>
+                    <div class="detail-row" style="font-size: 18px;">
+                        <span class="detail-label"><strong>Celkem</strong></span>
+                        <span class="detail-value"><strong>${receipt.total_amount?.toFixed(2) || '-'} ${receipt.currency}</strong></span>
+                    </div>
+                </div>
+            `;
+
+            modal.classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').classList.remove('active');
+        }
+
+        function exportReceipts() {
+            const category = document.getElementById('filterCategory').value;
+            const dateFrom = document.getElementById('filterDateFrom').value;
+            const dateTo = document.getElementById('filterDateTo').value;
+
+            let url = `${API_URL}/users/${currentUser?.id || 1}/receipts/export?format=csv_detailed&`;
+            if (category) url += `category=${category}&`;
+            if (dateFrom) url += `date_from=${dateFrom}T00:00:00&`;
+            if (dateTo) url += `date_to=${dateTo}T23:59:59&`;
+
+            window.location.href = url;
+        }
+
+        // Close modal on outside click
+        document.getElementById('detailModal').addEventListener('click', (e) => {
+            if (e.target.id === 'detailModal') closeModal();
+        });
+    </script>
+</body>
+</html>
